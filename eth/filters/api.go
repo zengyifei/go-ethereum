@@ -38,6 +38,7 @@ type filter struct {
 	typ      Type
 	deadline *time.Timer // filter is inactive when deadline triggers
 	hashes   []common.Hash
+	txs      []*types.Transaction // zyf
 	crit     FilterCriteria
 	logs     []*types.Log
 	s        *Subscription // associated subscription in event system
@@ -103,7 +104,7 @@ func (api *FilterAPI) timeoutLoop(timeout time.Duration) {
 // `eth_getFilterChanges` polling method that is also used for log filters.
 func (api *FilterAPI) NewPendingTransactionFilter() rpc.ID {
 	var (
-		pendingTxs   = make(chan []common.Hash)
+		pendingTxs   = make(chan []*types.Transaction)
 		pendingTxSub = api.events.SubscribePendingTxs(pendingTxs)
 	)
 
@@ -114,10 +115,10 @@ func (api *FilterAPI) NewPendingTransactionFilter() rpc.ID {
 	go func() {
 		for {
 			select {
-			case ph := <-pendingTxs:
+			case ptxs := <-pendingTxs:
 				api.filtersMu.Lock()
 				if f, found := api.filters[pendingTxSub.ID]; found {
-					f.hashes = append(f.hashes, ph...)
+					f.txs = append(f.txs, ptxs...)
 				}
 				api.filtersMu.Unlock()
 			case <-pendingTxSub.Err():
@@ -143,16 +144,16 @@ func (api *FilterAPI) NewPendingTransactions(ctx context.Context) (*rpc.Subscrip
 	rpcSub := notifier.CreateSubscription()
 
 	go func() {
-		txHashes := make(chan []common.Hash, 128)
-		pendingTxSub := api.events.SubscribePendingTxs(txHashes)
+		txsChan := make(chan []*types.Transaction, 128)
+		pendingTxSub := api.events.SubscribePendingTxs(txsChan)
 
 		for {
 			select {
-			case hashes := <-txHashes:
+			case txs := <-txsChan:
 				// To keep the original behaviour, send a single tx hash in one notification.
 				// TODO(rjl493456442) Send a batch of tx hashes in one notification
-				for _, h := range hashes {
-					notifier.Notify(rpcSub.ID, h)
+				for _, tx := range txs {
+					notifier.Notify(rpcSub.ID, tx)
 				}
 			case <-rpcSub.Err():
 				pendingTxSub.Unsubscribe()
