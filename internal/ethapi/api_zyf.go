@@ -5,14 +5,26 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
+)
+
+var (
+	ERC20ABI    = "[{\"constant\":true,\"inputs\":[],\"name\":\"name\",\"outputs\":[{\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_spender\",\"type\":\"address\"},{\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"approve\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"totalSupply\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_from\",\"type\":\"address\"},{\"name\":\"_to\",\"type\":\"address\"},{\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"transferFrom\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"decimals\",\"outputs\":[{\"name\":\"\",\"type\":\"uint8\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\"}],\"name\":\"balanceOf\",\"outputs\":[{\"name\":\"balance\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[],\"name\":\"symbol\",\"outputs\":[{\"name\":\"\",\"type\":\"string\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"constant\":false,\"inputs\":[{\"name\":\"_to\",\"type\":\"address\"},{\"name\":\"_value\",\"type\":\"uint256\"}],\"name\":\"transfer\",\"outputs\":[{\"name\":\"\",\"type\":\"bool\"}],\"payable\":false,\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"constant\":true,\"inputs\":[{\"name\":\"_owner\",\"type\":\"address\"},{\"name\":\"_spender\",\"type\":\"address\"}],\"name\":\"allowance\",\"outputs\":[{\"name\":\"\",\"type\":\"uint256\"}],\"payable\":false,\"stateMutability\":\"view\",\"type\":\"function\"},{\"payable\":true,\"stateMutability\":\"payable\",\"type\":\"fallback\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"owner\",\"type\":\"address\"},{\"indexed\":true,\"name\":\"spender\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Approval\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"name\":\"to\",\"type\":\"address\"},{\"indexed\":false,\"name\":\"value\",\"type\":\"uint256\"}],\"name\":\"Transfer\",\"type\":\"event\"}]"
+	WETHABI     = `[{"constant":true,"inputs":[],"name":"name","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"guy","type":"address"},{"name":"wad","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"totalSupply","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"src","type":"address"},{"name":"dst","type":"address"},{"name":"wad","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[{"name":"wad","type":"uint256"}],"name":"withdraw","outputs":[],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":true,"inputs":[],"name":"decimals","outputs":[{"name":"","type":"uint8"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[{"name":"","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":true,"inputs":[],"name":"symbol","outputs":[{"name":"","type":"string"}],"payable":false,"stateMutability":"view","type":"function"},{"constant":false,"inputs":[{"name":"dst","type":"address"},{"name":"wad","type":"uint256"}],"name":"transfer","outputs":[{"name":"","type":"bool"}],"payable":false,"stateMutability":"nonpayable","type":"function"},{"constant":false,"inputs":[],"name":"deposit","outputs":[],"payable":true,"stateMutability":"payable","type":"function"},{"constant":true,"inputs":[{"name":"","type":"address"},{"name":"","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"payable":false,"stateMutability":"view","type":"function"},{"payable":true,"stateMutability":"payable","type":"fallback"},{"anonymous":false,"inputs":[{"indexed":true,"name":"src","type":"address"},{"indexed":true,"name":"guy","type":"address"},{"indexed":false,"name":"wad","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"src","type":"address"},{"indexed":true,"name":"dst","type":"address"},{"indexed":false,"name":"wad","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"dst","type":"address"},{"indexed":false,"name":"wad","type":"uint256"}],"name":"Deposit","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"src","type":"address"},{"indexed":false,"name":"wad","type":"uint256"}],"name":"Withdrawal","type":"event"}]`
+	erc20, _    = abi.JSON(strings.NewReader(ERC20ABI))
+	weth, _     = abi.JSON(strings.NewReader(WETHABI))
+	wethAddress = common.HexToAddress("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
 )
 
 type Call2Resp struct {
@@ -81,16 +93,26 @@ func DoCall2(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash
 	}()
 
 	if simulateBalance != nil {
-		state.SetBalance(msg.From(), simulateBalance)
+		state.SetBalance(msg.From(), new(big.Int).Mul(simulateBalance, big.NewInt(2)))
+		if err := depositWETH(evm, msg.From(), wethAddress, simulateBalance, header, globalGasCap); err != nil {
+			return nil, err, nil
+		}
 	}
 	senderBalance := state.GetBalance(msg.From())
+	wethBalance, err := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
+	if err != nil {
+		return nil, err, nil
+	}
 	// Execute the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
 	result, err := core.ApplyMessage(evm, msg, gp)
 	if err := vmError(); err != nil {
 		return nil, err, nil
 	}
-	balanceDelta := senderBalance.Sub(state.GetBalance(msg.From()), senderBalance)
+	wethBalance2, _ := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
+	ethDelta := new(big.Int).Sub(state.GetBalance(msg.From()), senderBalance)
+	wethDelta := new(big.Int).Sub(wethBalance2, wethBalance)
+	balanceDelta := new(big.Int).Add(ethDelta, wethDelta)
 
 	// If the timer caused an abort, return an appropriate error message
 	if evm.Cancelled() {
@@ -122,4 +144,53 @@ func (s *BlockChainAPI) Call3(ctx context.Context, args TransactionArgs, blockNr
 		return nil, fmt.Errorf("marshal failed: %v, data: %v", err, resp)
 	}
 	return bs, result.Err
+}
+
+func getTokenBalance(evm *vm.EVM, owner, tokenAddress common.Address, header *types.Header, globalGasCap uint64) (*big.Int, error) {
+	method := "balanceOf"
+	input, err := erc20.Pack(method, owner)
+	if err != nil {
+		return nil, err
+	}
+	inputData := hexutil.Bytes(input)
+	txArgs := TransactionArgs{
+		To:   &tokenAddress,
+		Data: &inputData,
+	}
+	msg, err := txArgs.ToMessage(globalGasCap, header.BaseFee)
+	if err != nil {
+		return nil, err
+	}
+
+	sender := vm.AccountRef(msg.From())
+	ret, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
+	if vmerr != nil {
+		return nil, vmerr
+	}
+	bal := new(big.Int)
+	err = erc20.UnpackIntoInterface(bal, method, ret)
+	return bal, err
+}
+
+func depositWETH(evm *vm.EVM, from, tokenAddress common.Address, amount *big.Int, header *types.Header, globalGasCap uint64) error {
+	method := "deposit"
+	input, err := weth.Pack(method, amount)
+	if err != nil {
+		return err
+	}
+	inputData := hexutil.Bytes(input)
+	txArgs := TransactionArgs{
+		From:  &from,
+		To:    &tokenAddress,
+		Data:  &inputData,
+		Value: (*hexutil.Big)(amount),
+	}
+	msg, err := txArgs.ToMessage(globalGasCap, header.BaseFee)
+	if err != nil {
+		return err
+	}
+
+	sender := vm.AccountRef(msg.From())
+	_, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
+	return vmerr
 }
