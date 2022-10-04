@@ -174,7 +174,7 @@ func getTokenBalance(evm *vm.EVM, owner, tokenAddress common.Address, header *ty
 
 func depositWETH(evm *vm.EVM, from, tokenAddress common.Address, amount *big.Int, header *types.Header, globalGasCap uint64) error {
 	method := "deposit"
-	input, err := weth.Pack(method, amount)
+	input, err := weth.Pack(method)
 	if err != nil {
 		return err
 	}
