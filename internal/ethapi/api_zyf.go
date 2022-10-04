@@ -165,16 +165,19 @@ func getTokenBalance(evm *vm.EVM, owner, tokenAddress common.Address, header *ty
 	}
 
 	sender := vm.AccountRef(msg.From())
-	ret, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
+	output, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
 	if vmerr != nil {
 		fmt.Println("getTokenBalance3", vmerr)
 		return nil, vmerr
 	}
-	bal := new(big.Int)
-	err = erc20.UnpackIntoInterface(bal, method, ret)
+
+	out, err := erc20.Unpack(method, output)
 	if err != nil {
 		fmt.Println("getTokenBalance4", err)
+		return *new(*big.Int), err
 	}
+
+	bal := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
 	return bal, err
 }
 
