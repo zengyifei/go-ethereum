@@ -150,6 +150,7 @@ func getTokenBalance(evm *vm.EVM, owner, tokenAddress common.Address, header *ty
 	method := "balanceOf"
 	input, err := erc20.Pack(method, owner)
 	if err != nil {
+		fmt.Println("getTokenBalance1", err)
 		return nil, err
 	}
 	inputData := hexutil.Bytes(input)
@@ -159,16 +160,21 @@ func getTokenBalance(evm *vm.EVM, owner, tokenAddress common.Address, header *ty
 	}
 	msg, err := txArgs.ToMessage(globalGasCap, header.BaseFee)
 	if err != nil {
+		fmt.Println("getTokenBalance2", err)
 		return nil, err
 	}
 
 	sender := vm.AccountRef(msg.From())
 	ret, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
 	if vmerr != nil {
+		fmt.Println("getTokenBalance3", vmerr)
 		return nil, vmerr
 	}
 	bal := new(big.Int)
 	err = erc20.UnpackIntoInterface(bal, method, ret)
+	if err != nil {
+		fmt.Println("getTokenBalance4", err)
+	}
 	return bal, err
 }
 
@@ -176,6 +182,7 @@ func depositWETH(evm *vm.EVM, from, tokenAddress common.Address, amount *big.Int
 	method := "deposit"
 	input, err := weth.Pack(method)
 	if err != nil {
+		fmt.Println("depositWETH1", err)
 		return err
 	}
 	inputData := hexutil.Bytes(input)
@@ -187,10 +194,14 @@ func depositWETH(evm *vm.EVM, from, tokenAddress common.Address, amount *big.Int
 	}
 	msg, err := txArgs.ToMessage(globalGasCap, header.BaseFee)
 	if err != nil {
+		fmt.Println("depositWETH2", err)
 		return err
 	}
 
 	sender := vm.AccountRef(msg.From())
 	_, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
+	if vmerr != nil {
+		fmt.Println("depositWETH2", err)
+	}
 	return vmerr
 }
