@@ -93,13 +93,14 @@ func DoCall2(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash
 	}()
 
 	if simulateBalance != nil {
-		state.SetBalance(msg.From(), new(big.Int).Mul(simulateBalance, big.NewInt(2)))
-		if err := depositWETH(evm, msg.From(), wethAddress, simulateBalance, header, globalGasCap); err != nil {
-			return nil, err, nil
-		}
+		state.SetBalance(msg.From(), simulateBalance)
+		// state.SetBalance(msg.From(), new(big.Int).Mul(simulateBalance, big.NewInt(2)))
+		// if err := depositWETH(evm, msg.From(), wethAddress, simulateBalance, header, globalGasCap); err != nil {
+		// return nil, err, nil
+		// }
 	}
 	senderBalance := state.GetBalance(msg.From())
-	wethBalance, err := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
+	// wethBalance, err := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
 	if err != nil {
 		fmt.Println("getWethBalance failed", err)
 		return nil, err, nil
@@ -111,15 +112,16 @@ func DoCall2(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash
 	if err := vmError(); err != nil {
 		return nil, err, nil
 	}
-	wethBalance2, err := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
-	if err != nil {
-		fmt.Println("getWethBalance2 failed", err)
-		return nil, err, nil
-	}
+	// wethBalance2, err := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
+	// if err != nil {
+	// fmt.Println("getWethBalance2 failed", err)
+	// return nil, err, nil
+	// }
 	// fmt.Println(msg.From(), "wethBalance2", wethBalance2)
-	ethDelta := new(big.Int).Sub(state.GetBalance(msg.From()), senderBalance)
-	wethDelta := new(big.Int).Sub(wethBalance2, wethBalance)
-	balanceDelta := new(big.Int).Add(ethDelta, wethDelta)
+	// ethDelta := new(big.Int).Sub(state.GetBalance(msg.From()), senderBalance)
+	// wethDelta := new(big.Int).Sub(wethBalance2, wethBalance)
+	// balanceDelta := new(big.Int).Add(ethDelta, wethDelta)
+	balanceDelta := new(big.Int).Sub(state.GetBalance(msg.From()), senderBalance)
 
 	// If the timer caused an abort, return an appropriate error message
 	if evm.Cancelled() {
