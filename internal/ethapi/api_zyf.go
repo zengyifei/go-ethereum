@@ -201,7 +201,7 @@ func depositWETH(evm *vm.EVM, from, tokenAddress common.Address, amount *big.Int
 	sender := vm.AccountRef(msg.From())
 	_, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
 	if vmerr != nil {
-		fmt.Println("depositWETH2", err)
+		fmt.Println("depositWETH3", err)
 	}
 	return vmerr
 }
