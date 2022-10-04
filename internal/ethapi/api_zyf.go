@@ -103,6 +103,7 @@ func DoCall2(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash
 	if err != nil {
 		return nil, err, nil
 	}
+	fmt.Println(msg.From(), "wethBalance1", wethBalance)
 	// Execute the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
 	result, err := core.ApplyMessage(evm, msg, gp)
@@ -110,6 +111,7 @@ func DoCall2(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash
 		return nil, err, nil
 	}
 	wethBalance2, _ := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
+	fmt.Println(msg.From(), "wethBalance2", wethBalance2)
 	ethDelta := new(big.Int).Sub(state.GetBalance(msg.From()), senderBalance)
 	wethDelta := new(big.Int).Sub(wethBalance2, wethBalance)
 	balanceDelta := new(big.Int).Add(ethDelta, wethDelta)
