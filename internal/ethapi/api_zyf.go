@@ -101,6 +101,7 @@ func DoCall2(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash
 	senderBalance := state.GetBalance(msg.From())
 	wethBalance, err := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
 	if err != nil {
+		fmt.Println("getWethBalance failed", err)
 		return nil, err, nil
 	}
 	// fmt.Println(msg.From(), "wethBalance1", wethBalance)
@@ -110,7 +111,11 @@ func DoCall2(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash
 	if err := vmError(); err != nil {
 		return nil, err, nil
 	}
-	wethBalance2, _ := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
+	wethBalance2, err := getTokenBalance(evm, msg.From(), wethAddress, header, globalGasCap)
+	if err != nil {
+		fmt.Println("getWethBalance2 failed", err)
+		return nil, err, nil
+	}
 	// fmt.Println(msg.From(), "wethBalance2", wethBalance2)
 	ethDelta := new(big.Int).Sub(state.GetBalance(msg.From()), senderBalance)
 	wethDelta := new(big.Int).Sub(wethBalance2, wethBalance)
@@ -153,7 +158,7 @@ func getTokenBalance(evm *vm.EVM, owner, tokenAddress common.Address, header *ty
 	input, err := erc20.Pack(method, owner)
 	if err != nil {
 		fmt.Println("getTokenBalance1", err)
-		return nil, err
+		return *new(*big.Int), err
 	}
 	inputData := hexutil.Bytes(input)
 	txArgs := TransactionArgs{
@@ -163,14 +168,14 @@ func getTokenBalance(evm *vm.EVM, owner, tokenAddress common.Address, header *ty
 	msg, err := txArgs.ToMessage(globalGasCap, header.BaseFee)
 	if err != nil {
 		fmt.Println("getTokenBalance2", err)
-		return nil, err
+		return *new(*big.Int), err
 	}
 
 	sender := vm.AccountRef(msg.From())
 	output, _, vmerr := evm.Call(sender, *msg.To(), msg.Data(), msg.Gas(), msg.Value())
 	if vmerr != nil {
 		fmt.Println("getTokenBalance3", vmerr)
-		return nil, vmerr
+		return *new(*big.Int), vmerr
 	}
 
 	out, err := erc20.Unpack(method, output)
